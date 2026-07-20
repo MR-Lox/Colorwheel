@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chromawheel — Roue chromatique &amp; SVG</title>
+<style>
+  :root{
+    --paper:#eae5da;
+    --paper-2:#f7f4ec;
+    --ink:#221f1a;
+    --ink-soft:#736b5e;
+    --line:#cdc4b2;
+    --line-soft:#ddd6c6;
+    --accent:#d84f2b;
+    --accent-2:#2b6e5e;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+    --radius-chip: 10px 10px 4px 4px;
+  }
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
+
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  body{
+    min-height:100vh;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(34,31,26,.08) 1px, transparent 0);
+    background-size:22px 22px;
+  }
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  a{color:inherit;}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:2.2rem 1.5rem 4rem;}
+
+  header.top{position:relative;padding-bottom:1.6rem;margin-bottom:1.8rem;border-bottom:1px solid var(--line);}
+  .regmark{position:absolute;top:.1rem;width:16px;height:16px;opacity:.55;}
+  .regmark.left{left:0;} .regmark.right{right:0;}
+  .regmark svg{width:100%;height:100%;stroke:var(--accent);}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 .4rem;}
+  h1{font-size:clamp(1.9rem,4.2vw,2.7rem);margin:0 0 .5rem;letter-spacing:-.02em;font-weight:800;}
+  h1 span{color:var(--accent);}
+  header.top p{margin:0;max-width:56ch;color:var(--ink-soft);font-size:.95rem;line-height:1.5;}
+
+  .studio{display:grid;grid-template-columns:minmax(300px,400px) 1fr;gap:1.8rem;align-items:start;}
+  @media (max-width:900px){ .studio{grid-template-columns:1fr;} }
+
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:1.4rem;}
+  .card + .card{margin-top:1.8rem;}
+  .card .eyebrow{margin-bottom:.9rem;}
+
+  /* mode buttons */
+  .modes{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.3rem;}
+  .mode-btn{
+    font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;
+    background:transparent;border:1px solid var(--line);color:var(--ink-soft);
+    padding:.4rem .65rem;border-radius:999px;cursor:pointer;transition:all .15s ease;
+  }
+  .mode-btn:hover{border-color:var(--ink-soft);color:var(--ink);}
+  .mode-btn.active{background:var(--ink);border-color:var(--ink);color:var(--paper-2);}
+
+  /* wheel */
+  .wheel-zone{display:flex;flex-direction:column;align-items:center;gap:.9rem;}
+  .wheel-wrap{position:relative;width:min(280px,80vw);aspect-ratio:1/1;touch-action:none;}
+  .wheel-wrap canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;
+    box-shadow:0 0 0 6px var(--paper-2), 0 0 0 7px var(--line), inset 0 0 14px rgba(0,0,0,.15);cursor:crosshair;}
+  .marker{position:absolute;width:20px;height:20px;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 5px rgba(0,0,0,.3);
+    transform:translate(-50%,-50%);cursor:grab;}
+  .marker.base{width:25px;height:25px;box-shadow:0 0 0 2px var(--accent),0 2px 6px rgba(0,0,0,.35);}
+  .marker.active-custom{box-shadow:0 0 0 2px var(--accent-2),0 2px 6px rgba(0,0,0,.35);}
+  .marker:active{cursor:grabbing;}
+
+  .readout{font-family:var(--mono);font-size:.75rem;color:var(--ink-soft);text-align:center;}
+  .readout b{color:var(--ink);}
+
+  .l-row{display:flex;align-items:center;gap:.6rem;width:100%;max-width:280px;}
+  .l-row label{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap;}
+  .l-row input[type=range]{flex:1;accent-color:var(--accent);}
+
+  .chips{display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;width:100%;margin-top:1.2rem;}
+  .chip{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-chip);padding:.4rem;text-align:center;transition:outline .1s;}
+  .chip.active{outline:2px solid var(--accent);outline-offset:2px;}
+  .chip .swatch{display:block;width:100%;aspect-ratio:1/1;border-radius:7px 7px 2px 2px;border:1px solid rgba(0,0,0,.15);cursor:pointer;padding:0;}
+  .chip .hex{display:block;width:100%;background:none;border:0;font-family:var(--mono);font-size:.62rem;color:var(--ink-soft);
+    margin-top:.3rem;cursor:pointer;padding:.1rem 0;}
+  .chip .hex:hover{color:var(--ink);}
+  .chip .mini-l{width:100%;margin-top:.3rem;accent-color:var(--accent-2);height:10px;}
+
+  .actions-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.2rem;}
+  .btn{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;
+    background:var(--ink);color:var(--paper-2);border:1px solid var(--ink);padding:.55rem .8rem;border-radius:8px;cursor:pointer;}
+  .btn:hover{background:#3a352c;}
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line);}
+  .btn.ghost:hover{border-color:var(--ink-soft);}
+  .btn.accent{background:var(--accent);border-color:var(--accent);}
+
+  /* dropzone */
+  .dropzone{border:1.5px dashed var(--line);border-radius:10px;padding:1.6rem 1rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--accent);background:rgba(216,79,43,.04);}
+  .dropzone p{margin:.2rem 0;color:var(--ink-soft);font-size:.85rem;}
+  .dropzone strong{color:var(--ink);}
+  .paste-toggle{background:none;border:0;color:var(--accent-2);font-family:var(--mono);font-size:.72rem;cursor:pointer;text-decoration:underline;margin-top:.5rem;}
+  .paste-area{display:none;margin-top:.7rem;}
+  .paste-area.show{display:block;}
+  textarea{width:100%;min-height:110px;font-family:var(--mono);font-size:.75rem;background:var(--paper);
+    border:1px solid var(--line);border-radius:8px;padding:.6rem;color:var(--ink);resize:vertical;}
+
+  .preview{margin-top:1.2rem;background:
+      linear-gradient(45deg,#e2ddd0 25%,transparent 25%),linear-gradient(-45deg,#e2ddd0 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#e2ddd0 75%),linear-gradient(-45deg,transparent 75%,#e2ddd0 75%);
+    background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;
+    background-color:var(--paper);
+    border:1px solid var(--line);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;padding:1.2rem;min-height:220px;}
+  .preview svg, .preview img{max-width:100%;max-height:320px;height:auto;}
+
+  .detected{margin-top:1.2rem;display:flex;flex-direction:column;gap:.55rem;}
+  .drow{display:flex;align-items:center;gap:.6rem;background:var(--paper);border:1px solid var(--line-soft);border-radius:9px;padding:.45rem .6rem;}
+  .drow .orig-swatch{width:26px;height:26px;border-radius:6px;border:1px solid rgba(0,0,0,.15);flex:none;}
+  .drow .orig-code{font-family:var(--mono);font-size:.68rem;color:var(--ink-soft);width:5.6rem;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .slotpicks{display:flex;gap:.3rem;margin-left:auto;}
+  .slotbtn{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;}
+  .slotbtn.sel{border-color:var(--ink);}
+  .slotbtn.keep{background:var(--paper-2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:.6rem;color:var(--ink-soft);}
+  .slotbtn.keep.sel{border-color:var(--ink);color:var(--ink);}
+
+  .empty-note{font-size:.8rem;color:var(--ink-soft);text-align:center;padding:1rem 0;}
+
+  footer{margin-top:2.5rem;font-size:.75rem;color:var(--ink-soft);text-align:center;font-family:var(--mono);}
+
+  .toast{position:fixed;left:50%;bottom:1.6rem;transform:translate(-50%,20px);background:var(--ink);color:var(--paper-2);
+    font-family:var(--mono);font-size:.78rem;padding:.6rem 1rem;border-radius:8px;opacity:0;pointer-events:none;transition:all .2s ease;z-index:50;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="regmark left"><svg viewBox="0 0 16 16"><line x1="8" y1="0" x2="8" y2="16"/><line x1="0" y1="8" x2="16" y2="8"/><circle cx="8" cy="8" r="4" fill="none"/></svg></span>
+    <span class="regmark right"><svg viewBox="0 0 16 16"><line x1="8" y1="0" x2="8" y2="16"/><line x1="0" y1="8" x2="16" y2="8"/><circle cx="8" cy="8" r="4" fill="none"/></svg></span>
+    <p class="eyebrow">Atelier de couleur</p>
+    <h1>Chroma<span>wheel</span></h1>
+    <p>Composez une palette sur la roue chromatique, choisissez une règle d'harmonie, puis habillez un SVG avec vos couleurs — en direct.</p>
+  </header>
+
+  <div class="studio">
+    <!-- LEFT: wheel studio -->
+    <div>
+      <div class="card">
+        <p class="eyebrow">01 — Roue chromatique</p>
+        <div class="modes" id="modes"></div>
+
+        <div class="wheel-zone">
+          <div class="wheel-wrap" id="wheelWrap">
+            <canvas id="wheelCanvas"></canvas>
+          </div>
+          <p class="readout" id="readout">H 0° · S 0% · L 0%</p>
+          <div class="l-row">
+            <label for="lightSlider">Luminosité</label>
+            <input type="range" id="lightSlider" min="4" max="96" value="50">
+          </div>
+          <div class="chips" id="chips"></div>
+          <div class="actions-row">
+            <button class="btn accent" id="shuffleBtn">🎲 Palette aléatoire</button>
+            <button class="btn ghost" id="copyHexBtn">Copier les hex</button>
+            <button class="btn ghost" id="copyCssBtn">Copier en CSS</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: svg -->
+    <div>
+      <div class="card">
+        <p class="eyebrow">02 — Habiller le SVG</p>
+
+        <div class="dropzone" id="dropzone">
+          <p><strong>Glissez un fichier .svg ici</strong></p>
+          <p>ou cliquez pour parcourir</p>
+          <input type="file" id="fileInput" accept=".svg,image/svg+xml" hidden>
+        </div>
+        <button class="paste-toggle" id="pasteToggle">coller du code SVG à la place</button>
+        <div class="paste-area" id="pasteArea">
+          <textarea id="pasteText" placeholder="&lt;svg&gt;...&lt;/svg&gt;"></textarea>
+          <button class="btn ghost" id="pasteLoadBtn" style="margin-top:.5rem;">Charger ce SVG</button>
+        </div>
+
+        <div class="preview" id="preview"></div>
+
+        <div class="detected" id="detected"></div>
+
+        <div class="actions-row">
+          <button class="btn accent" id="downloadBtn">Télécharger le SVG recoloré</button>
+          <button class="btn ghost" id="copySvgBtn">Copier le code SVG</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Chromawheel · tout se passe dans votre navigateur, rien n'est envoyé nulle part · barre espace = palette aléatoire</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- color math ---------- */
+  function hslToRgb(h,s,l){
+    s/=100; l/=100;
+    const c=(1-Math.abs(2*l-1))*s;
+    const x=c*(1-Math.abs((h/60)%2-1));
+    const m=l-c/2;
+    let r=0,g=0,b=0;
+    if(h<60){r=c;g=x;b=0;} else if(h<120){r=x;g=c;b=0;} else if(h<180){r=0;g=c;b=x;}
+    else if(h<240){r=0;g=x;b=c;} else if(h<300){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
+    return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+  }
+  function hslToHex(h,s,l){
+    const [r,g,b]=hslToRgb(h,s,l);
+    return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  function normalizeColor(str){
+    str=str.trim().toLowerCase();
+    if(str[0]==='#'){
+      if(str.length===4){ return '#'+str[1]+str[1]+str[2]+str[2]+str[3]+str[3]; }
+      return str;
+    }
+    const m=str.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);
+    if(m){
+      const r=Math.round(parseFloat(m[1])),g=Math.round(parseFloat(m[2])),b=Math.round(parseFloat(m[3]));
+      return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+    }
+    return str;
+  }
+  const COLOR_RE = /#(?:[0-9a-fA-F]{3}){1,2}(?![0-9a-fA-F])|rgba?\([^)]*\)/g;
+
+  /* ---------- harmony formulas ---------- */
+  const MODES = [
+    {key:'monochromatic', label:'Mono'},
+    {key:'analogous', label:'Analogue'},
+    {key:'complementary', label:'Complémentaire'},
+    {key:'splitComplementary', label:'Compl. divisée'},
+    {key:'triadic', label:'Triadique'},
+    {key:'tetradic', label:'Tétradique'},
+    {key:'custom', label:'Libre'}
+  ];
+  const FORMULAS = {
+    monochromatic:[{dh:0,dl:0},{dh:0,dl:-30},{dh:0,dl:-15},{dh:0,dl:15},{dh:0,dl:30}],
+    analogous:[{dh:0,dl:0},{dh:-30,dl:4},{dh:30,dl:-4},{dh:-15,dl:10},{dh:15,dl:-10}],
+    complementary:[{dh:0,dl:0},{dh:0,dl:18},{dh:180,dl:0},{dh:180,dl:18},{dh:180,dl:-18}],
+    splitComplementary:[{dh:0,dl:0},{dh:0,dl:-15},{dh:150,dl:0},{dh:210,dl:0},{dh:180,dl:-20}],
+    triadic:[{dh:0,dl:0},{dh:0,dl:-18},{dh:120,dl:0},{dh:240,dl:0},{dh:120,dl:18}],
+    tetradic:[{dh:0,dl:0},{dh:90,dl:0},{dh:180,dl:0},{dh:270,dl:0},{dh:45,dl:-15}]
+  };
+  function applyFormula(mode, base){
+    return FORMULAS[mode].map(({dh,dl})=>({
+      h:(base.h+dh+360)%360, s:base.s,
+      l:Math.max(6,Math.min(96, base.l+dl))
+    }));
+  }
+
+  /* ---------- state ---------- */
+  const state = {
+    mode:'analogous',
+    activeIndex:0,
+    colors:[
+      {h:205,s:58,l:52},{h:205,s:58,l:60},{h:235,s:58,l:44},{h:190,s:58,l:64},{h:220,s:58,l:36}
+    ],
+    svg:{ original:'', current:'', detected:[], map:{} }
+  };
+  state.colors = applyFormula('analogous', {h:205,s:58,l:52});
+
+  /* ---------- DOM refs ---------- */
+  const modesEl = document.getElementById('modes');
+  const chipsEl = document.getElementById('chips');
+  const wheelCanvas = document.getElementById('wheelCanvas');
+  const wheelWrap = document.getElementById('wheelWrap');
+  const readoutEl = document.getElementById('readout');
+  const lightSlider = document.getElementById('lightSlider');
+  const toastEl = document.getElementById('toast');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const pasteToggle = document.getElementById('pasteToggle');
+  const pasteArea = document.getElementById('pasteArea');
+  const pasteText = document.getElementById('pasteText');
+  const pasteLoadBtn = document.getElementById('pasteLoadBtn');
+  const previewEl = document.getElementById('preview');
+  const detectedEl = document.getElementById('detected');
+
+  let markerEls = [];
+
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 2200);
+  }
+
+  /* ---------- wheel image ---------- */
+  function buildWheelImage(size){
+    wheelCanvas.width = size; wheelCanvas.height = size;
+    const ctx = wheelCanvas.getContext('2d');
+    const img = ctx.createImageData(size,size);
+    const cx=size/2, cy=size/2, r=size/2;
+    for(let y=0;y<size;y++){
+      for(let x=0;x<size;x++){
+        const dx=x-cx, dy=y-cy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        const idx=(y*size+x)*4;
+        if(dist<=r){
+          let angle=Math.atan2(dy,dx)*180/Math.PI;
+          angle=(angle+360)%360;
+          const sat=Math.min(100,(dist/r)*100);
+          const [rr,gg,bb]=hslToRgb(angle,sat,50);
+          img.data[idx]=rr; img.data[idx+1]=gg; img.data[idx+2]=bb; img.data[idx+3]=255;
+        } else { img.data[idx+3]=0; }
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+  buildWheelImage(600);
+
+  /* ---------- markers ---------- */
+  function hueSatToPercent(h,s){
+    const rad = h*Math.PI/180;
+    const rNorm = Math.min(1, s/100);
+    const x = 0.5 + Math.cos(rad)*0.5*rNorm;
+    const y = 0.5 + Math.sin(rad)*0.5*rNorm;
+    return {left:(x*100)+'%', top:(y*100)+'%'};
+  }
+  function buildMarkers(){
+    markerEls.forEach(m=>m.remove());
+    markerEls = [];
+    for(let i=0;i<5;i++){
+      const el = document.createElement('div');
+      el.className='marker'+(i===0?' base':'');
+      el.dataset.idx = i;
+      wheelWrap.appendChild(el);
+      markerEls.push(el);
+    }
+  }
+  buildMarkers();
+
+  function updateWheelMarkers(){
+    state.colors.forEach((c,i)=>{
+      const {left,top} = hueSatToPercent(c.h,c.s);
+      const el = markerEls[i];
+      el.style.left = left; el.style.top = top;
+      el.style.background = hslToHex(c.h,c.s,c.l);
+      el.classList.toggle('active-custom', state.mode==='custom' && state.activeIndex===i);
+    });
+    const selIdx = state.mode==='custom' ? state.activeIndex : 0;
+    const sc = state.colors[selIdx];
+    readoutEl.innerHTML = 'H <b>'+Math.round(sc.h)+'°</b> · S <b>'+Math.round(sc.s)+'%</b> · L <b>'+Math.round(sc.l)+'%</b> · <b>'+hslToHex(sc.h,sc.s,sc.l)+'</b>';
+    lightSlider.value = Math.round(sc.l);
+    lightSlider.disabled = !(state.mode==='custom' || selIdx===0);
+  }
+
+  /* ---------- chips ---------- */
+  function buildChips(){
+    chipsEl.innerHTML='';
+    for(let i=0;i<5;i++){
+      const chip = document.createElement('div');
+      chip.className='chip';
+      chip.dataset.idx = i;
+      const sw = document.createElement('button');
+      sw.className='swatch';
+      sw.setAttribute('aria-label','Sélectionner cette couleur');
+      chip.appendChild(sw);
+      const hexBtn = document.createElement('button');
+      hexBtn.className='hex';
+      chip.appendChild(hexBtn);
+      const miniL = document.createElement('input');
+      miniL.type='range'; miniL.min=4; miniL.max=96; miniL.className='mini-l';
+      chip.appendChild(miniL);
+      chipsEl.appendChild(chip);
+
+      sw.addEventListener('click', ()=>{ state.activeIndex=i; renderAll(); });
+      hexBtn.addEventListener('click', ()=>{
+        const hex = hslToHex(state.colors[i].h,state.colors[i].s,state.colors[i].l);
+        navigator.clipboard.writeText(hex).then(()=>showToast(hex+' copié'));
+      });
+      miniL.addEventListener('input', (e)=>{
+        state.colors[i].l = parseFloat(e.target.value);
+        state.activeIndex = i;
+        renderAll();
+      });
+    }
+  }
+  buildChips();
+
+  function updateChips(){
+    [...chipsEl.children].forEach((chip,i)=>{
+      const c = state.colors[i];
+      const hex = hslToHex(c.h,c.s,c.l);
+      chip.querySelector('.swatch').style.background = hex;
+      chip.querySelector('.hex').textContent = hex;
+      const miniL = chip.querySelector('.mini-l');
+      miniL.style.display = state.mode==='custom' ? 'block' : 'none';
+      miniL.value = Math.round(c.l);
+      chip.classList.toggle('active', state.mode==='custom' && state.activeIndex===i);
+    });
+  }
+
+  /* ---------- modes ---------- */
+  function buildModes(){
+    modesEl.innerHTML='';
+    MODES.forEach(m=>{
+      const b = document.createElement('button');
+      b.className='mode-btn'+(m.key===state.mode?' active':'');
+      b.textContent = m.label;
+      b.dataset.key = m.key;
+      b.addEventListener('click', ()=>{
+        if(m.key!=='custom'){
+          state.colors = applyFormula(m.key, state.colors[0]);
+        }
+        state.mode = m.key;
+        state.activeIndex = 0;
+        buildModes();
+        renderAll();
+      });
+      modesEl.appendChild(b);
+    });
+  }
+  buildModes();
+
+  /* ---------- recompute / render ---------- */
+  function recompute(){
+    if(state.mode!=='custom'){
+      state.colors = applyFormula(state.mode, state.colors[0]);
+    }
+    renderAll();
+  }
+  function renderAll(){
+    updateWheelMarkers();
+    updateChips();
+    renderSvgWithMapping();
+    updateDetectedRows();
+  }
+
+  /* ---------- wheel pointer interaction ---------- */
+  let dragging = false;
+  function pointToHueSat(clientX, clientY){
+    const rect = wheelCanvas.getBoundingClientRect();
+    const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+    const dx = clientX-cx, dy = clientY-cy;
+    const maxR = rect.width/2;
+    let dist = Math.min(Math.sqrt(dx*dx+dy*dy), maxR);
+    let angle = Math.atan2(dy,dx)*180/Math.PI;
+    angle = (angle+360)%360;
+    return {h:angle, s:(dist/maxR)*100};
+  }
+  function handlePointer(clientX, clientY){
+    const target = state.mode==='custom' ? state.activeIndex : 0;
+    const {h,s} = pointToHueSat(clientX, clientY);
+    state.colors[target].h = h;
+    state.colors[target].s = s;
+    if(state.mode!=='custom'){ recompute(); } else { renderAll(); }
+  }
+  wheelWrap.addEventListener('pointerdown', (e)=>{
+    dragging = true;
+    wheelWrap.setPointerCapture(e.pointerId);
+    handlePointer(e.clientX, e.clientY);
+  });
+  wheelWrap.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    handlePointer(e.clientX, e.clientY);
+  });
+  wheelWrap.addEventListener('pointerup', ()=>{ dragging=false; });
+  wheelWrap.addEventListener('pointercancel', ()=>{ dragging=false; });
+
+  lightSlider.addEventListener('input', (e)=>{
+    const idx = state.mode==='custom' ? state.activeIndex : 0;
+    state.colors[idx].l = parseFloat(e.target.value);
+    if(state.mode!=='custom' && idx===0){ recompute(); } else { renderAll(); }
+  });
+
+  /* ---------- shuffle ---------- */
+  function shuffle(){
+    const base = {h: Math.random()*360, s: 45+Math.random()*45, l: 40+Math.random()*24};
+    if(state.mode==='custom'){
+      state.colors = state.colors.map(()=>({h:Math.random()*360, s:45+Math.random()*45, l:30+Math.random()*50}));
+    } else {
+      state.colors = applyFormula(state.mode, base);
+    }
+    renderAll();
+  }
+  document.getElementById('shuffleBtn').addEventListener('click', shuffle);
+  document.addEventListener('keydown', (e)=>{
+    if(e.code==='Space' && document.activeElement===document.body){
+      e.preventDefault(); shuffle();
+    }
+  });
+
+  /* ---------- copy palette ---------- */
+  document.getElementById('copyHexBtn').addEventListener('click', ()=>{
+    const list = state.colors.map(c=>hslToHex(c.h,c.s,c.l)).join(', ');
+    navigator.clipboard.writeText(list).then(()=>showToast('Palette copiée'));
+  });
+  document.getElementById('copyCssBtn').addEventListener('click', ()=>{
+    const css = ':root{\n'+state.colors.map((c,i)=>'  --color-'+(i+1)+': '+hslToHex(c.h,c.s,c.l)+';').join('\n')+'\n}';
+    navigator.clipboard.writeText(css).then(()=>showToast('Variables CSS copiées'));
+  });
+
+  /* ---------- SVG handling ---------- */
+  function detectColors(svgText){
+    const found=[]; const seen=new Set();
+    let m;
+    const re = new RegExp(COLOR_RE.source,'g');
+    while((m=re.exec(svgText))){
+      const norm = normalizeColor(m[0]);
+      if(!seen.has(norm)){ seen.add(norm); found.push({norm, sample:m[0]}); }
+    }
+    return found;
+  }
+  function renderSvgWithMapping(){
+    if(!state.svg.original) return;
+    const re = new RegExp(COLOR_RE.source,'g');
+    const out = state.svg.original.replace(re, (m)=>{
+      const norm = normalizeColor(m);
+      const slot = state.svg.map[norm];
+      if(slot===null || slot===undefined) return m;
+      const c = state.colors[slot];
+      return hslToHex(c.h,c.s,c.l);
+    });
+    state.svg.current = out;
+    previewEl.innerHTML = out;
+  }
+  function buildDetectedRows(){
+    detectedEl.innerHTML='';
+    if(state.svg.detected.length===0){
+      detectedEl.innerHTML = '<p class="empty-note">Aucune couleur détectée dans ce SVG.</p>';
+      return;
+    }
+    state.svg.detected.forEach(d=>{
+      const row = document.createElement('div');
+      row.className='drow';
+      const sw = document.createElement('div');
+      sw.className='orig-swatch';
+      sw.style.background = d.norm;
+      row.appendChild(sw);
+      const code = document.createElement('span');
+      code.className='orig-code';
+      code.textContent = d.norm;
+      row.appendChild(code);
+      const picks = document.createElement('div');
+      picks.className='slotpicks';
+      for(let i=0;i<5;i++){
+        const b = document.createElement('button');
+        b.className='slotbtn';
+        b.dataset.norm = d.norm;
+        b.dataset.slot = i;
+        b.title = 'Couleur '+(i+1);
+        b.addEventListener('click', ()=>{
+          state.svg.map[d.norm] = i;
+          renderSvgWithMapping();
+          updateDetectedRows();
+        });
+        picks.appendChild(b);
+      }
+      const keep = document.createElement('button');
+      keep.className='slotbtn keep';
+      keep.textContent='∅';
+      keep.title='Garder la couleur d\'origine';
+      keep.addEventListener('click', ()=>{
+        state.svg.map[d.norm] = null;
+        renderSvgWithMapping();
+        updateDetectedRows();
+      });
+      picks.appendChild(keep);
+      row.appendChild(picks);
+      detectedEl.appendChild(row);
+    });
+  }
+  function updateDetectedRows(){
+    [...detectedEl.querySelectorAll('.drow')].forEach(row=>{
+      const norm = row.querySelector('.orig-code').textContent;
+      const btns = row.querySelectorAll('.slotbtn');
+      btns.forEach(b=>{
+        if(b.classList.contains('keep')){
+          b.classList.toggle('sel', state.svg.map[norm]===null || state.svg.map[norm]===undefined);
+        } else {
+          const slot = parseInt(b.dataset.slot,10);
+          const c = state.colors[slot];
+          b.style.background = hslToHex(c.h,c.s,c.l);
+          b.classList.toggle('sel', state.svg.map[norm]===slot);
+        }
+      });
+    });
+  }
+  function loadSvgText(text){
+    try{
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text,'image/svg+xml');
+      if(doc.querySelector('parsererror')) throw new Error('SVG invalide');
+      if(!doc.documentElement || doc.documentElement.nodeName.toLowerCase()!=='svg') throw new Error("Pas de balise <svg> trouvée");
+    } catch(e){
+      showToast('⚠️ '+(e.message || 'SVG invalide'));
+      return;
+    }
+    state.svg.original = text;
+    state.svg.detected = detectColors(text);
+    state.svg.map = {};
+    state.svg.detected.forEach((d,i)=>{ state.svg.map[d.norm] = i % 5; });
+    buildDetectedRows();
+    renderAll();
+  }
+
+  dropzone.addEventListener('click', ()=>fileInput.click());
+  dropzone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', ()=>dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', (e)=>{
+    e.preventDefault(); dropzone.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>loadSvgText(reader.result);
+    reader.readAsText(file);
+  });
+  fileInput.addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>loadSvgText(reader.result);
+    reader.readAsText(file);
+  });
+  pasteToggle.addEventListener('click', ()=>{
+    pasteArea.classList.toggle('show');
+  });
+  pasteLoadBtn.addEventListener('click', ()=>{
+    const text = pasteText.value.trim();
+    if(!text){ showToast('Collez du code SVG d\'abord'); return; }
+    loadSvgText(text);
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', ()=>{
+    if(!state.svg.current){ showToast('Chargez un SVG d\'abord'); return; }
+    const blob = new Blob([state.svg.current], {type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'palette-recoloree.svg';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('SVG téléchargé');
+  });
+  document.getElementById('copySvgBtn').addEventListener('click', ()=>{
+    if(!state.svg.current){ showToast('Chargez un SVG d\'abord'); return; }
+    navigator.clipboard.writeText(state.svg.current).then(()=>showToast('Code SVG copié'));
+  });
+
+  /* ---------- sample svg ---------- */
+  const SAMPLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">'+
+    '<rect x="0" y="0" width="400" height="300" fill="#cfe8e0"/>'+
+    '<circle cx="300" cy="70" r="42" fill="#f4b942"/>'+
+    '<polygon points="0,300 140,120 260,300" fill="#8fa1b3"/>'+
+    '<polygon points="120,300 260,150 400,300" fill="#6b7a8f"/>'+
+    '<path d="M0,300 L0,240 Q100,190 200,235 T400,220 L400,300 Z" fill="#3f5147"/>'+
+    '</svg>';
+
+  /* ---------- init ---------- */
+  renderAll();
+  loadSvgText(SAMPLE_SVG);
+
+  window.addEventListener('resize', ()=>{ updateWheelMarkers(); });
+})();
+</script>
+</body>
+</html>
